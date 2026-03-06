@@ -1,0 +1,6 @@
+I’ll implement a scraper pipeline in this workspace that crawls MiningCave shop pagination, extracts each product-item-info block (price + stock), saves to CSV, and supports daily refresh runs. I’m starting by scanning the existing project structure to integrate it cleanly.
+
+I found the workspace is essentially empty (app.py only), so I’ll build a fresh scraping module plus a runnable entrypoint. Next I’ll add: pagination crawling, extraction from div.product-item-info, CSV persistence for current + history, and a daily scheduler mode.
+
+I’m starting file edits now: replacing the empty app.py with a production-style scraper CLI and adding a short README with run instructions, including a daily mode.
+Once core scraper code is in place, I’ll add a minimal runbook with exact commands for one-off scrape and daily scheduling so this can run unattended.

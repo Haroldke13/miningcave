@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: miningcave-demo-web
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    plan: starter
+    envVars:
+      - key: APP_MODE
+        value: chat
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: DRY_RUN_SOCIAL
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: INVENTORY_DB_URL
+        sync: false
+      - key: AUTOMATION_API_TOKEN
+        sync: false
+    healthCheckPath: /health
+
+  - type: worker
+    name: miningcave-demo-worker
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    plan: starter
+    envVars:
+      - key: APP_MODE
+        value: worker
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: DRY_RUN_SOCIAL
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: INVENTORY_DB_URL
+        sync: false
+      - key: AUTOMATION_API_TOKEN
+        sync: false

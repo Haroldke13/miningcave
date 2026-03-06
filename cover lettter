@@ -1,0 +1,74 @@
+Subject: Application - AI Automation Expert for Real-Time Inventory Sync & E-commerce Management
+
+Hello,
+
+I am applying for your AI Automation Expert project for MiningCave. I have already built a working prototype in my local workspace that demonstrates the exact core requirement: reliable, automated stock and price syncing from your WooCommerce storefront structure and pagination.
+
+Prototype proof from current workspace:
+- Built scraper + automation engine: `inventory_worker.py`
+- AI web app + inventory dashboard: `customer_agent_app.py`
+- Live output file (ready to attach): `/home/harold-coder/Desktop/miningcave/data/miningcave_inventory_latest.csv`
+- Render-ready container + startup modes: `Dockerfile`, `start.sh`, `render.yaml`
+
+What I have already implemented:
+1. Real inventory scraping from `https://miningcave.com/shop-page/`.
+2. Parsing of each product card element (`div.product-item-info`) for:
+- Product name
+- Product URL
+- Price text + normalized numeric price
+- Stock status (including explicit "Out of Stock" detection)
+- Shipping text
+- Product description
+- Product image URL
+3. Automatic pagination crawling using `nav.woocommerce-pagination` across all pages.
+4. CSV persistence model:
+- `miningcave_inventory_latest.csv` (current snapshot, overwritten each run)
+- `miningcave_inventory_history.csv` (append-only history for trend/change tracking)
+5. Daily scheduler mode (`--daily`) for fully automated recurring updates.
+6. API-driven automation stack:
+- OpenAI Responses API for customer support/sales chat replies grounded in inventory data.
+- OpenAI Images API (`gpt-image-1`) for social media creative generation.
+- Facebook Graph API integration for automated posting (with secure token-based auth).
+- Flask API endpoints for orchestration (`/chat` and `/automation/pilot-mode/run`) to support webhook or admin-triggered workflows.
+
+Current dataset evidence from the attached CSV:
+- Total products captured: 685
+- Total paginated pages crawled: 25
+- Stock breakdown: 630 out of stock, 55 in stock
+- Includes per-product URL, stock state, and normalized numeric price values suitable for downstream automation.
+
+How I will run this on Render (production architecture):
+1. Deploy via Render Blueprint (`render.yaml`) with 2 services:
+- Web service (`APP_MODE=chat`) for customer-facing dashboard + AI assistant
+- Worker service (`APP_MODE=worker`) for daily scraping and automation tasks
+2. Use shared persistence with Render Postgres (`INVENTORY_DB_URL`) so both services read/write the same inventory state.
+3. Worker runs daily updates, refreshes latest inventory/history, and syncs DB for real-time UI/API access.
+4. The generated output feeds your automation layer:
+- Website stock/price sync workflows
+- Marketing triggers (social content when inventory changes)
+- AI support agent knowledge refresh
+5. If preferred, I can switch the worker to Render Cron Jobs for strict fixed schedules and easier job monitoring.
+
+How I handle “no supplier API” scenarios:
+- I use resilient scraping selectors + fallback extraction paths.
+- I monitor layout-sensitive fields and implement selector failover.
+- I add structured logging and validation checks (record count, missing fields, price anomalies) so layout changes are detected early instead of silently breaking updates.
+
+Relevant project experience:
+- End-to-end web scraping systems for inventory/price monitoring
+- Data normalization pipelines for e-commerce catalog updates
+- Automated scheduled jobs in Dockerized deployments (including Render)
+- AI-assisted operational automation across support, SEO content, and marketing workflows
+- API integration across OpenAI, social APIs, and internal REST endpoints for production automation
+
+Render deployment details I manage:
+- Environment setup: `OPENAI_API_KEY`, `INVENTORY_DB_URL`, `AUTOMATION_API_TOKEN`, `FACEBOOK_PAGE_ID`, `FACEBOOK_ACCESS_TOKEN`
+- Health checks, protected automation endpoints, and production Gunicorn serving
+- Web URL delivery for your review and user acceptance testing
+
+I can deliver this as a production-ready Render deployment with clear monitoring, scheduled sync reliability, and extensible automation hooks for customer support and marketing workflows. You can view a prototype at: https://miningcave.onrender.com
+
+For Facebook automated posting, I will need Page access credentials (`FACEBOOK_PAGE_ID` and `FACEBOOK_ACCESS_TOKEN`) from your team.
+
+Best regards,
+Joel Onyango

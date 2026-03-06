@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiningCave Inventory Tables</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='inventory.css') }}">
+</head>
+<body>
+  <main class="container">
+    <h1>MiningCave Inventory Data</h1>
+    <p class="subtitle">Live inventory + AI sales assistant demo for customer review.</p>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2 id="table-title">Latest Inventory</h2>
+        <div class="controls">
+          <label for="dataset">Table</label>
+          <select id="dataset">
+            <option value="latest">Latest</option>
+            <option value="history">History</option>
+          </select>
+          <label for="search-input">Search</label>
+          <input id="search-input" type="text" placeholder="product_name / price_text / price_value / stock_text">
+          <label for="sort-by">Sort by</label>
+          <select id="sort-by">
+            <option value="product_name">product_name</option>
+            <option value="price_text">price_text</option>
+            <option value="price_value">price_value</option>
+            <option value="stock_text">stock_text</option>
+          </select>
+          <label for="sort-order">Order</label>
+          <select id="sort-order">
+            <option value="asc">asc</option>
+            <option value="desc">desc</option>
+          </select>
+          <label for="per-page">Rows</label>
+          <select id="per-page">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <button id="apply-filter-btn" type="button">Apply</button>
+          <button id="post-social-btn" type="button">Update Social Media</button>
+        </div>
+      </div>
+      <div class="admin-actions">
+        <button id="refresh-products-seo-btn" type="button">Refresh Products + SEO CSV</button>
+        <label for="seo-max-products">SEO rows</label>
+        <input id="seo-max-products" type="number" min="1" max="500" value="50">
+      </div>
+      <p id="refresh-status" class="refresh-status"></p>
+
+      <div class="meta">
+        <span id="meta-text">Loading...</span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="inventory-table">
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button id="first-btn" type="button">First</button>
+        <button id="prev-btn" type="button">Prev</button>
+        <span id="page-label">Page 1</span>
+        <button id="next-btn" type="button">Next</button>
+        <button id="last-btn" type="button">Last</button>
+      </div>
+    </section>
+
+    <section class="panel chat-panel">
+      <div class="panel-header">
+        <h2>AI Customer Assistant</h2>
+      </div>
+      <p class="chat-note">Ask product, stock, shipping, or pricing questions as a customer would.</p>
+      <div id="chat-log" class="chat-log" aria-live="polite"></div>
+      <div class="chat-actions">
+        <button type="button" class="chip" data-prompt="I need an in-stock bitcoin miner under $4000">In-stock under $4000</button>
+        <button type="button" class="chip" data-prompt="Which miners ship fastest right now?">Fast shipping</button>
+        <button type="button" class="chip" data-prompt="Recommend 3 beginner-friendly options">Beginner picks</button>
+      </div>
+      <form id="chat-form" class="chat-form">
+        <textarea id="chat-input" rows="3" placeholder="Type customer message..." required></textarea>
+        <button id="chat-send" type="submit">Send</button>
+      </form>
+      <p id="chat-status" class="chat-status"></p>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='inventory.js') }}"></script>
+</body>
+</html>
