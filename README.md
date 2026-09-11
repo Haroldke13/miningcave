@@ -1,127 +1,112 @@
-# MiningCave Inventory Scraper
+# MiningCave Inventory Scraper and AI Agent
 
-Scrapes `https://miningcave.com/shop-page/` product cards (`div.product-item-info`), including:
-- Product name and URL
-- Price text + numeric value
-- Stock status text (`Out of Stock` / other action labels)
-- Shipping text, description, image, product ID
+Scrapes product stock and pricing from the MiningCave WooCommerce storefront, stores snapshots and history, and serves an inventory dashboard plus an LLM-backed sales chat over that data.
 
-The scraper follows WooCommerce pagination and processes all pages.
+## What it does
 
-## Install
+Three pieces share one codebase, selected at runtime by `APP_MODE` in `start.sh`.
+
+**Scraper (`inventory_worker.py`).** Fetches `https://miningcave.com/shop-page/`, reads the page count from `nav.woocommerce-pagination`, then walks every page extracting each `div.product-item-info`: product name, product URL, price text and a normalised numeric price, stock status text (with an explicit out-of-stock check and a quantity parse), shipping text, description, image URL and a GTM product id. Results are written to `data/miningcave_inventory_latest.csv` (overwritten each run) and appended to `data/miningcave_inventory_history.csv`. Flags: `--start-url`, `--daily`, `--daily-hour-utc`, `--daily-minute-utc`, `--run-pilot-mode`. The `--daily` scheduler is a built-in sleep loop, not cron.
+
+**Web app (`customer_agent_app.py`, Flask).** Routes actually defined in the file:
+
+- `GET /` and `GET /inventory` — the dashboard page (`templates/inventory.html`)
+- `GET /health`
+- `GET /api/inventory/latest` and `GET /api/inventory/history` — paginated JSON with `page`, `per_page`, search and sort
+- `POST /chat` and `POST /api/chat` — customer question answering
+- `POST /automation/pilot-mode/run`
+- `POST /automation/refresh-products-seo`
+- `POST /automation/post-social-update`
+
+**Automation package (`automation/`).**
+
+- `customer_agent.py` — filters and ranks products by keyword and by price limits parsed out of the question, then asks the model to answer grounded in those rows. It has a `_local_response` fallback path that answers from the CSV without calling the model.
+- `seo.py` — generates per-product SEO title/description rows into a CSV.
+- `marketing.py` — generates marketing copy and an image, and posts to a Facebook Page via `https://graph.facebook.com/v21.0/<page_id>/photos`. Gated by `DRY_RUN_SOCIAL`, which defaults to true.
+- `openai_client.py` — a hand-rolled HTTP client against `https://api.openai.com/v1/responses` (text) and `/v1/images/generations` with `gpt-image-1`. The official `openai` SDK is not used.
+- `pilot_mode.py` — runs marketing + SEO in one pass and writes `data/pilot_mode_last_run.json`.
+
+**Persistence (`persistence.py`).** SQLAlchemy Core tables `inventory_latest` (keyed on product) and `inventory_history` (append-only), so the worker and web service can share a database instead of a local CSV.
+
+## Tech stack
+
+From `requirements.txt`, all pinned:
+
+- `Flask==3.0.3`, `gunicorn==23.0.0`
+- `beautifulsoup4==4.12.3`, `requests==2.32.3`
+- `SQLAlchemy==2.0.38`, `psycopg[binary]==3.2.6`
+- `python-dotenv==1.0.1`
+
+Plus: Python 3.11-slim base image (`Dockerfile`), Render Blueprint deploy (`render.yaml`, two Docker services — a web service and a worker), vanilla HTML/CSS/JS frontend (`templates/inventory.html`, `static/inventory.css`, `static/inventory.js`), OpenAI Responses and Images APIs over raw HTTP, Facebook Graph API v21.0.
+
+## Setup and running
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # then fill it in
 ```
 
-## Run Once
+One-off scrape:
 
 ```bash
 python3 inventory_worker.py
 ```
 
-Outputs:
-- `data/miningcave_inventory_latest.csv` (overwritten each run)
-- `data/miningcave_inventory_history.csv` (append-only history)
-
-Run scrape + AI pilot mode automation (marketing + SEO):
-
-```bash
-python3 inventory_worker.py --run-pilot-mode
-```
-
-## Run Daily (Built-in Scheduler)
-
-Runs once per day at 00:05 UTC by default:
+Daily scrape (default 00:05 UTC), optionally with the AI automations:
 
 ```bash
 python3 inventory_worker.py --daily
-```
-
-Custom UTC time:
-
-```bash
-python3 inventory_worker.py --daily --daily-hour-utc 1 --daily-minute-utc 30
-```
-
-Daily scrape + AI pilot mode:
-
-```bash
 python3 inventory_worker.py --daily --run-pilot-mode
 ```
 
-## AI Customer Agent API (Flask)
-
-Start API:
+Web API and dashboard:
 
 ```bash
-APP_MODE=chat ./start.sh
+APP_MODE=chat ./start.sh            # gunicorn customer_agent_app:app
+python3 customer_agent_app.py       # Flask dev server, PORT defaults to 10000
 ```
 
-Endpoints:
-- `GET /health`
-- `POST /chat` with JSON body: `{"message":"I need an in-stock bitcoin miner under $4000"}`
-- `POST /automation/pilot-mode/run` with optional JSON body: `{"max_seo_products":50}`
-- `GET /inventory` paginated frontend tables for latest/history CSV
-- `GET /api/inventory/latest?page=1&per_page=25`
-- `GET /api/inventory/history?page=1&per_page=25`
-- `POST /automation/refresh-products-seo` (auth required)
-
-Customer demo URL:
-- Open `/inventory` to show both paginated inventory and AI chat assistant in one screen.
-
-## Environment Variables
-
-Copy `.env.example` and set your secrets:
+Pilot-mode automations once:
 
 ```bash
-cp .env.example .env
+APP_MODE=pilot_once ./start.sh      # or: python3 -m automation.pilot_mode
 ```
 
-`.env` is auto-loaded via `python-dotenv` (optional override: `DOTENV_PATH=/path/to/.env`).
+Environment variables. `.env` is loaded by `python-dotenv` (override the path with `DOTENV_PATH`).
 
-Required:
-- `OPENAI_API_KEY`
-- `INVENTORY_DB_URL` (shared database used by both web and worker; recommended Render Postgres)
-- `AUTOMATION_API_TOKEN` (protects `/automation/pilot-mode/run`)
-- `ALLOW_UI_AUTOMATION_WITHOUT_TOKEN` (`true` allows dashboard refresh buttons without manual token prompt)
-- `ASSISTANT_CONTEXT_CACHE_TTL_SECONDS` (default `300`; cache refresh interval for merged CSV assistant context)
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Yes for any AI path | `OpenAIClient` raises `ValueError` if empty |
+| `OPENAI_MODEL` | No | defaults to `gpt-4.1-mini` |
+| `INVENTORY_DB_URL` | No, but needed for shared state | falls back to `DATABASE_URL`, then to `sqlite:///data/inventory.db` |
+| `AUTOMATION_API_TOKEN` | Yes to protect the automation endpoints | sent as `Authorization: Bearer <token>` |
+| `ALLOW_UI_AUTOMATION_WITHOUT_TOKEN` | — | **defaults to `true`**, which disables that auth check |
+| `ASSISTANT_CONTEXT_CACHE_TTL_SECONDS` | No | default 300 |
+| `INVENTORY_CSV`, `MARKETING_OUTPUT_DIR`, `SEO_OUTPUT_CSV` | No | output paths |
+| `DRY_RUN_SOCIAL` | No | defaults to `true`; set false to actually post |
+| `FACEBOOK_PAGE_ID`, `FACEBOOK_ACCESS_TOKEN` | Only for real posting | |
+| `APP_MODE`, `PORT`, `WEB_CONCURRENCY` | No | read by `start.sh` |
 
-Optional:
-- `FACEBOOK_PAGE_ID`
-- `FACEBOOK_ACCESS_TOKEN`
-- `DRY_RUN_SOCIAL` (`true` by default, recommended until validated)
+Render deploy: create a Blueprint from `render.yaml`, then set `OPENAI_API_KEY`, `INVENTORY_DB_URL` and `AUTOMATION_API_TOKEN` as secrets on both services (they are declared `sync: false`). The web service health check is `/health`.
 
-## Production Deployment (Render)
+No migrations are needed — `persistence.init_db()` calls `metadata.create_all()`.
 
-This repo includes `render.yaml` for one-click Blueprint deployment:
+## Status
 
-1. Push this project to GitHub.
-2. In Render: `New +` -> `Blueprint` -> select this repo.
-3. Set secret env var:
-- `OPENAI_API_KEY` (required for chat and AI automations)
-- `INVENTORY_DB_URL` (point both services to the same DB)
-- `AUTOMATION_API_TOKEN` (required to call automation trigger endpoint)
-4. Deploy services:
-- `miningcave-demo-web` (`APP_MODE=chat`) exposes public URL.
-- `miningcave-demo-worker` (`APP_MODE=worker`) runs daily scrape + AI automations.
-5. After deploy, share:
-- `https://<your-web-service>.onrender.com/inventory`
+Working prototype, built as a job-application demo. One commit, dated 2026-03-06. The repository still contains the application cover letter (`cover lettter`) and a working-notes file (`how to go about it`).
 
-Production notes:
-- Chat service runs with Gunicorn (not Flask dev server).
-- Health check endpoint: `/health`.
-- Shared persistence uses DB tables (`inventory_latest`, `inventory_history`) populated by worker and read by web.
-- Automation endpoint auth:
-  `Authorization: Bearer <AUTOMATION_API_TOKEN>`
-- Frontend button on `/inventory`: **Refresh Products + SEO CSV** calls `/automation/refresh-products-seo`.
+What is implemented and looks complete: the scraper and its CSV/DB persistence, the paginated inventory API and dashboard, the chat endpoint with a non-AI fallback, the SEO and marketing generators, the Facebook posting path, the Docker/Render deployment wiring, and the daily scheduler.
 
-## Alternative: Cron (recommended for servers)
+Caveats:
 
-Example: run every day at 03:00 UTC
+- `ALLOW_UI_AUTOMATION_WITHOUT_TOKEN` defaults to `true`, so on a default deployment `/automation/*` is reachable without a token. Those endpoints spend OpenAI credits and, with `DRY_RUN_SOCIAL=false`, post publicly to Facebook.
+- The scraper depends on MiningCave's current WooCommerce markup (`div.product-item-info`, `nav.woocommerce-pagination`). Any layout change breaks extraction silently apart from log noise.
+- `miningcave.com` is a third-party site; check its terms before running this against it at scale.
+- No tests, no CI, no linting.
+- TODO: verify — nothing here was executed. The scrape counts quoted in the cover letter (685 products, 25 pages, 630 out of stock) are the author's claim from a run whose CSV is not in the repository, and were not reproduced.
 
-```cron
-0 3 * * * cd /home/harold-coder/Desktop/miningcave && /usr/bin/python3 inventory_worker.py >> scraper.log 2>&1
-```
+## License
+
+GPL-3.0 (`LICENSE`).

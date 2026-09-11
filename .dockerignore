@@ -1,10 +1,46 @@
+# Extends the short list this repo shipped with. The important additions are
+# the secret patterns: the old file did not exclude .env, and `COPY . .` was
+# therefore baking a real credentials file into the image.
+
+# VCS
+.git/
+.gitignore
+.github
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.pyd
 .Python
 .venv/
 venv/
-.git/
-.gitignore
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets — never bake these into an image
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime state: belongs in the /app/data volume, not the image
+data/
+*.db
+*.sqlite3
 scraper.log
+*.log
+
+# Bulky repo extras that the web service does not serve
+cover lettter
+how to go about it
+render.yaml
+
+# Local noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
+Dockerfile
+.dockerignore
+DEPLOY.md
