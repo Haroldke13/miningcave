@@ -30,3 +30,16 @@ scraper.log
 .DS_Store
 .idea/
 .vscode/
+
+# --------------------------------------------------------------
+# Added: secrets, local state and generated artefacts.
+# NOTE: this does not untrack files already committed —
+#       use git rm --cached for those.
+# --------------------------------------------------------------
+# Environment files, keys and credentials
+*.pem
+*.key
+
+# Local databases
+*.sqlite3
+instance/
